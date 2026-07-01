@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Route {
+  id                Int             @id @default(autoincrement())
+  // IATA code, e.g. "JFK"
+  origin            String
+  // IATA code, or null for "anywhere" (Flight Inspiration search)
+  destination       String?
+  tripType          String          @default("ROUND_TRIP") // ROUND_TRIP | ONE_WAY
+  // Search window for the departure date (inclusive)
+  departDateFrom    String // YYYY-MM-DD
+  departDateTo      String // YYYY-MM-DD
+  // Trip length in days for round trips (return = departure + stayDurationDays)
+  stayDurationDays  Int             @default(7)
+  // JSON array of IATA airline codes, e.g. ["DL","KE"]. Empty array = any airline
+  preferredAirlines String          @default("[]")
+  cabin             String          @default("ECONOMY") // ECONOMY | PREMIUM_ECONOMY | BUSINESS | FIRST
+  currency          String          @default("USD")
+  // Absolute threshold: alert when price <= maxPrice. Null disables the rule
+  maxPrice          Float?
+  // Percent threshold: alert when price is at least dropPercent% below the baseline average
+  dropPercent       Float           @default(40)
+  intervalMinutes   Int             @default(60)
+  enabled           Boolean         @default(true)
+  lastCheckedAt     DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  snapshots         PriceSnapshot[]
+  alerts            Alert[]
+}
+
+model PriceSnapshot {
+  id          Int      @id @default(autoincrement())
+  route       Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  routeId     Int
+  price       Float
+  currency    String
+  airline     String? // marketing carrier IATA code of the cheapest offer
+  // For "anywhere" routes: the actual destination found
+  destination String?
+  departDate  String? // YYYY-MM-DD
+  returnDate  String? // YYYY-MM-DD
+  // JSON: segments, stops, duration of the cheapest offer
+  details     String   @default("{}")
+  bookingLink String?
+  capturedAt  DateTime @default(now())
+
+  @@index([routeId, capturedAt])
+}
+
+model Alert {
+  id          Int      @id @default(autoincrement())
+  route       Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  routeId     Int
+  price       Float
+  currency    String
+  baselineAvg Float?
+  baselineMin Float?
+  baselineMax Float?
+  rule        String // PERCENT | ABSOLUTE
+  destination String?
+  departDate  String?
+  returnDate  String?
+  airline     String?
+  details     String   @default("{}")
+  bookingLink String?
+  // PENDING | SENT | FAILED | SKIPPED (no email configured)
+  emailStatus String   @default("PENDING")
+  emailError  String?
+  createdAt   DateTime @default(now())
+
+  @@index([routeId, createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}

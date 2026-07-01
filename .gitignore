@@ -1,0 +1,30 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# env
+.env
+.env.local
+.env.production
+
+# database
+/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# logs
+*.log
+/logs/
+
+# misc
+.DS_Store
+*.tsbuildinfo
