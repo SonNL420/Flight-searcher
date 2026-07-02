@@ -88,7 +88,10 @@ pm2 save && pm2 startup         # survive reboots
 pm2 logs flight-searcher-worker
 ```
 
-The dashboard listens on `PORT` (default 3000). Both processes share the SQLite file at
+The dashboard listens on `PORT` (default 3000). If something else is already on
+3000, pick any port: `npm run dev -- -p 3001` in development, or
+`PORT=3001 pm2 start ecosystem.config.js` in production (set it in your shell —
+Next.js does not read the listen port from `.env`). Both processes share the SQLite file at
 `data/app.db` (WAL mode); back it up by copying that file.
 
 ### Other platforms

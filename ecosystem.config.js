@@ -6,7 +6,8 @@ module.exports = {
       name: "flight-searcher-web",
       script: "node_modules/next/dist/bin/next",
       args: "start",
-      env: { NODE_ENV: "production" },
+      // Dashboard port: PORT=3001 pm2 start ecosystem.config.js (default 3000)
+      env: { NODE_ENV: "production", PORT: process.env.PORT || "3000" },
       max_restarts: 10,
     },
     {
