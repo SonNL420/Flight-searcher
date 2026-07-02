@@ -161,20 +161,6 @@ export default function RouteForm({
             />
           </div>
           <div>
-            <label className={labelCls} htmlFor="cabin">Cabin</label>
-            <select
-              id="cabin"
-              className={inputCls}
-              value={values.cabin}
-              onChange={(e) => set({ cabin: e.target.value })}
-            >
-              <option value="ECONOMY">Economy</option>
-              <option value="PREMIUM_ECONOMY">Premium economy</option>
-              <option value="BUSINESS">Business</option>
-              <option value="FIRST">First</option>
-            </select>
-          </div>
-          <div>
             <label className={labelCls} htmlFor="currency">Currency</label>
             <input
               id="currency"

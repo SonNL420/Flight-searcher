@@ -1,7 +1,7 @@
 import { config } from "./config";
 
 /**
- * Politeness layer for outbound Amadeus API calls:
+ * Politeness layer for outbound flight-API calls:
  *  - strictly serialized (one request in flight at a time)
  *  - configurable delay + random jitter between requests
  *  - exponential backoff with retries on 429 / 5xx (honors Retry-After)

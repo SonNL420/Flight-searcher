@@ -1,5 +1,5 @@
 /**
- * Amadeus does not return consumer booking URLs, so we deep-link into Google
+ * Fallback when the provider returns no booking URL: deep-link into Google
  * Flights with a natural-language query it resolves reliably.
  */
 export function googleFlightsLink(opts: {

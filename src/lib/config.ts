@@ -9,13 +9,10 @@ function num(name: string, fallback: number): number {
 }
 
 export const config = {
-  amadeus: {
-    clientId: process.env.AMADEUS_CLIENT_ID ?? "",
-    clientSecret: process.env.AMADEUS_CLIENT_SECRET ?? "",
-    baseUrl:
-      process.env.AMADEUS_ENV === "production"
-        ? "https://api.amadeus.com"
-        : "https://test.api.amadeus.com",
+  travelpayouts: {
+    token: process.env.TRAVELPAYOUTS_TOKEN ?? "",
+    // Data-source market for cached prices, e.g. "us", "de", "ru"
+    market: process.env.TRAVELPAYOUTS_MARKET ?? "us",
   },
   email: {
     resendApiKey: process.env.RESEND_API_KEY ?? "",
@@ -29,10 +26,8 @@ export const config = {
   },
 };
 
-export function assertAmadeusConfigured(): void {
-  if (!config.amadeus.clientId || !config.amadeus.clientSecret) {
-    throw new Error(
-      "AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET must be set (see .env.example)"
-    );
+export function assertProviderConfigured(): void {
+  if (!config.travelpayouts.token) {
+    throw new Error("TRAVELPAYOUTS_TOKEN must be set (see .env.example)");
   }
 }

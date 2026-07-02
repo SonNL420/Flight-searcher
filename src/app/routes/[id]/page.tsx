@@ -74,7 +74,7 @@ export default async function RouteDetailPage({
         <h1 className="text-xl font-semibold">
           {route.origin} → {route.destination ?? "anywhere"}
           <span className="ml-2 text-sm font-normal text-[var(--ink-muted)]">
-            {route.tripType === "ROUND_TRIP" ? "round trip" : "one way"} · {route.cabin.toLowerCase()}
+            {route.tripType === "ROUND_TRIP" ? "round trip" : "one way"}
           </span>
         </h1>
         <div className="ml-auto flex items-center gap-3">

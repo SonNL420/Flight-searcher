@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { config } from "./config";
 import type { Baseline, GlitchRule } from "./detection";
-import type { FoundFare } from "./amadeus/types";
+import type { FoundFare } from "./flights/types";
 import type { AppSettings } from "./settings";
 
 export interface AlertEmail {

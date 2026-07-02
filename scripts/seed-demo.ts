@@ -57,7 +57,7 @@ async function main(): Promise<void> {
   await prisma.priceSnapshot.createMany({ data: snapshots });
 
   console.log(`Seeded demo route #${route.id} (JFK → HND) with ${snapshots.length} snapshots.`);
-  console.log(`Run "npm run check-now -- ${route.id}" to do a real Amadeus check against it,`);
+  console.log(`Run "npm run check-now -- ${route.id}" to do a real price check against it,`);
   console.log("or open the dashboard to see the chart and baseline.");
 }
 

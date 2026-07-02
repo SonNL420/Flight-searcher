@@ -1,19 +1,24 @@
 # ✈️ Flight Glitch Watch
 
 A personal flight price **glitch detector**: it continuously monitors routes you
-configure via the **Amadeus Self-Service API**, builds a price baseline from its own
-history, and emails you through **Resend** the moment a fare drops dramatically below
-normal — a possible error fare or flash sale.
+configure via the **Travelpayouts / Aviasales Data API**, builds a price baseline from
+its own history, and emails you through **Resend** the moment a fare drops dramatically
+below normal — a possible error fare or flash sale.
+
+> **Why Travelpayouts?** The tool originally targeted the Amadeus Self-Service API,
+> which Amadeus is decommissioning on **July 17, 2026**. The Travelpayouts/Aviasales
+> Data API is free, needs only an affiliate-program signup, and serves cached
+> real-market prices — a great fit for baseline-vs-anomaly detection.
 
 - **Flight search** — specific origin → destination routes, or origin → *anywhere*
-  (Amadeus Flight Inspiration), with date windows, trip length, preferred airlines,
-  cabin and currency per route
+  (cheapest destinations from your origin), with date windows, trip length, preferred
+  airlines and currency per route
 - **Glitch detection** — two rules per route: *X% below the historical average* and/or
   *below an absolute price you set*; a cooldown prevents alert spam
 - **Scheduled monitoring** — a small worker process checks each route on its own
   interval (15 min, hourly, daily — set per route in the dashboard)
-- **Email alerts** — price vs. normal range, dates, airline, segments, and a Google
-  Flights booking link
+- **Email alerts** — price vs. normal range, dates, airline, and a booking link
+  (Aviasales when the API provides one, otherwise Google Flights)
 - **Web dashboard** — add/remove routes, tune thresholds and frequency, price history
   charts with alert markers, recent alerts, email settings
 
@@ -35,11 +40,16 @@ Example: JFK → Tokyo usually $900–1200; a $300 fare is ~70% below the averag
 
 ## Setup
 
-Requirements: Node 20+, a free [Amadeus Self-Service](https://developers.amadeus.com)
-account, and a [Resend](https://resend.com) API key.
+Requirements: Node 20+, a free [Travelpayouts](https://www.travelpayouts.com) account,
+and a [Resend](https://resend.com) API key.
+
+**Getting the flight-data token (free):** sign up at travelpayouts.com, join the
+**Aviasales** affiliate program inside the dashboard, then copy the token from
+**Profile → API token**.
 
 ```bash
-git clone <this repo> && cd Flight-searcher
+git clone https://github.com/SonNL420/Flight-searcher.git
+cd Flight-searcher
 npm install
 cp .env.example .env      # then fill in the values below
 npx prisma migrate deploy
@@ -49,8 +59,8 @@ npx prisma migrate deploy
 
 | Variable | What |
 |---|---|
-| `AMADEUS_CLIENT_ID` / `AMADEUS_CLIENT_SECRET` | from your Amadeus app ("API key" / "API secret") |
-| `AMADEUS_ENV` | `test` (free, limited data) or `production` |
+| `TRAVELPAYOUTS_TOKEN` | from Travelpayouts → Profile → API token |
+| `TRAVELPAYOUTS_MARKET` | which market's cached prices to use: `us`, `de`, `gb`, … |
 | `RESEND_API_KEY` | from resend.com |
 | `ALERT_EMAIL_FROM` | verified sender, or `Flight Alerts <onboarding@resend.dev>` for testing |
 | `ALERT_EMAIL_TO` | where alerts go |
@@ -61,7 +71,7 @@ npx prisma migrate deploy
 ### Run it
 
 ```bash
-npm run dev       # dashboard at http://localhost:3000
+npm run dev       # dashboard at http://localhost:3000  (or: npm run dev -- -p 3001)
 npm run worker    # the monitor loop, in a second terminal
 ```
 
@@ -73,8 +83,8 @@ npm run check-now -- 3    # check route id 3
 npm run seed-demo         # demo route + 30 days of fake history to try the dashboard
 ```
 
-Add a route in the dashboard, then `npm run check-now` to verify your Amadeus
-credentials end to end. Use **Settings → Send test email** to verify Resend.
+Add a route in the dashboard, then `npm run check-now` to verify your token end to end.
+Use **Settings → Send test email** to verify Resend.
 
 ## Deployment (Linux + PM2)
 
@@ -91,8 +101,8 @@ pm2 logs flight-searcher-worker
 The dashboard listens on `PORT` (default 3000). If something else is already on
 3000, pick any port: `npm run dev -- -p 3001` in development, or
 `PORT=3001 pm2 start ecosystem.config.js` in production (set it in your shell —
-Next.js does not read the listen port from `.env`). Both processes share the SQLite file at
-`data/app.db` (WAL mode); back it up by copying that file.
+Next.js does not read the listen port from `.env`). Both processes share the SQLite
+file at `data/app.db` (WAL mode); back it up by copying that file.
 
 ### Other platforms
 
@@ -103,33 +113,32 @@ Next.js does not read the listen port from `.env`). Both processes share the SQL
   SQLite and Hobby cron is once-daily. You'd need a hosted DB (Turso/Neon/Supabase) and
   a Pro-plan cron hitting an API route instead of the worker.
 
-## API usage, rate limits & "anti-ban"
+## Data source characteristics & limits
 
-This tool talks to an **official, authenticated API**, so user-agent rotation and
-scraping tricks are pointless (and against ToS). What actually keeps you unbanned and
-under quota is built in:
+The Aviasales Data API serves **cached prices** from real user searches:
 
-- all Amadeus calls run through a **serialized queue** with a 600 ms + jitter gap
+- Prices can lag live fares by minutes to hours. That's fine for spotting anomalies,
+  but **always confirm the live price via the booking link before buying** — error
+  fares vanish fast and airlines may not honor them.
+- Fixed routes query exact sampled dates (up to **3 departure dates per check**, one
+  API call each). *Anywhere* routes use the popular-destinations cache (1 call) — the
+  route's date window is not applied there; treat results as "cheap somewhere soon."
+- Cached data is economy class; the cabin setting from the original design is not used.
+- Currencies: `usd`, `eur` and most major codes work; set it per route.
+
+"Anti-ban" is built in even though this is an official, authenticated API:
+
+- all calls run through a **serialized queue** with a 600 ms + jitter gap
   (`REQUEST_DELAY_MS`)
 - automatic **exponential backoff** on 429/5xx, honoring `Retry-After`
 - a **daily request budget** (`DAILY_REQUEST_BUDGET`, default 500/day) — when it's
-  spent, checks pause until tomorrow
-
-Budget math: a fixed route samples up to **3 departure dates per check** (3 API calls);
-an *anywhere* route is 1 call. A route checked every 15 min ≈ 288 calls/day — fine for
-production tier, but the free **test** tier is capped per month, so start with hourly
-checks there. The Amadeus test environment also returns a reduced set of airlines/routes
-and cached prices; use `AMADEUS_ENV=production` (free to enable, pay-per-call beyond the
-monthly free quota) for real monitoring.
-
-Booking links point to Google Flights for the found dates — Amadeus fares (especially
-Inspiration results) are indicative, so always confirm the price before booking.
-Error fares vanish fast and airlines may not honor them.
+  spent, checks pause until tomorrow. A fixed route checked every 15 min ≈ 288
+  calls/day; hourly ≈ 72.
 
 ## Project layout
 
 ```
-src/lib/amadeus/    API client (OAuth cache, offers + inspiration search)
+src/lib/flights/      provider client (Travelpayouts/Aviasales) + fare types
 src/lib/rateLimit.ts  politeness queue, backoff, daily budget
 src/lib/detection.ts  baseline + glitch rules + cooldown
 src/lib/email.ts      Resend alert email
@@ -138,3 +147,7 @@ src/app/              dashboard (App Router) + API route handlers
 scripts/              check-now, seed-demo
 ecosystem.config.js   PM2: web + worker
 ```
+
+Swapping providers later is contained: implement `searchCheapestOffer` /
+`searchAnywhere` returning the `FoundFare` shape in `src/lib/flights/` and update the
+two imports in `src/worker/checkRoute.ts`.

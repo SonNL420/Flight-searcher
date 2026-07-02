@@ -1,6 +1,6 @@
 import type { Route } from "@prisma/client";
-import { searchAnywhere, searchCheapestOffer } from "@/lib/amadeus/client";
-import type { FoundFare } from "@/lib/amadeus/types";
+import { searchAnywhere, searchCheapestOffer } from "@/lib/flights/travelpayouts";
+import type { FoundFare } from "@/lib/flights/types";
 import { prisma } from "@/lib/db";
 import { computeBaseline, evaluateGlitch, passesCooldown, type GlitchRule } from "@/lib/detection";
 import { sendAlertEmail } from "@/lib/email";
@@ -59,14 +59,13 @@ export function sampleDates(from: string, to: string, n = 3): string[] {
 
 async function findCheapestFare(route: Route): Promise<{ fare: FoundFare | null; note?: string }> {
   const oneWay = route.tripType === "ONE_WAY";
+  const airlines = parseAirlines(route);
 
   if (!route.destination) {
     const fares = await searchAnywhere({
       origin: route.origin,
-      departDateFrom: route.departDateFrom,
-      departDateTo: route.departDateTo,
-      oneWay,
-      stayDurationDays: route.stayDurationDays,
+      currency: route.currency,
+      airlines,
     });
     if (fares.length === 0) return { fare: null, note: "no destinations returned" };
     return { fare: fares.reduce((a, b) => (a.price <= b.price ? a : b)) };
@@ -76,7 +75,6 @@ async function findCheapestFare(route: Route): Promise<{ fare: FoundFare | null;
   if (dates.length === 0) {
     return { fare: null, note: "departure window is entirely in the past" };
   }
-  const airlines = parseAirlines(route);
   let cheapest: FoundFare | null = null;
   for (const departDate of dates) {
     const fare = await searchCheapestOffer({
@@ -84,7 +82,6 @@ async function findCheapestFare(route: Route): Promise<{ fare: FoundFare | null;
       destination: route.destination,
       departDate,
       returnDate: oneWay ? undefined : addDays(departDate, route.stayDurationDays),
-      cabin: route.cabin,
       currency: route.currency,
       airlines,
     });
@@ -107,7 +104,7 @@ export async function checkRoute(route: Route): Promise<CheckOutcome> {
   const { fare, note } = await findCheapestFare(route);
   if (!fare) return done({ fare: null, alerted: false, note });
 
-  const bookingLink = googleFlightsLink(fare);
+  const bookingLink = fare.link ?? googleFlightsLink(fare);
 
   // Baseline is computed from history *before* today's price is added, so a
   // glitch price can't drag its own baseline down.
