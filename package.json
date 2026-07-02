@@ -8,6 +8,7 @@
     "start": "next start",
     "worker": "tsx src/worker/index.ts",
     "check-now": "tsx scripts/check-now.ts",
+    "seed-demo": "tsx scripts/seed-demo.ts",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate"
